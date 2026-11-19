@@ -6,7 +6,7 @@ COMPOSE_CMD="docker compose -f langfuse-official/docker-compose.yml -f docker-co
 
 case "$1" in
     up)
-        $COMPOSE_CMD up -d
+        $COMPOSE_CMD up -d --build
         ;;
     down)
         $COMPOSE_CMD down

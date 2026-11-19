@@ -42,3 +42,9 @@ services:
     ports: !override
       - "127.0.0.1:9090:9000"
       - "127.0.0.1:9091:9001"
+
+  # Unconfigured without gateway keys (inference returns 503); not needed for telemetry
+  langfuse-ai-gateway:
+    profiles: ["ai-gateway"]
+    ports: !override
+      - "127.0.0.1:3031:3031"

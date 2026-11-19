@@ -25,12 +25,16 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-LANGFUSE_VERSION="v3.227.1"
+LANGFUSE_VERSION="v4.82.0"
 
 # Check if langfuse-official exists
 if [ ! -d "langfuse-official" ]; then
     echo -e "${YELLOW}⚠️  Langfuse repository not found. Cloning ${LANGFUSE_VERSION}...${NC}"
     git clone --depth 1 --branch "${LANGFUSE_VERSION}" https://github.com/langfuse/langfuse.git langfuse-official
+elif [ "$(git -C langfuse-official describe --tags --exact-match 2>/dev/null)" != "${LANGFUSE_VERSION}" ]; then
+    echo -e "${YELLOW}⚠️  Switching langfuse-official to ${LANGFUSE_VERSION}...${NC}"
+    git -C langfuse-official fetch --depth 1 origin tag "${LANGFUSE_VERSION}"
+    git -C langfuse-official checkout -q "${LANGFUSE_VERSION}"
 fi
 
 # Login (Langfuse requires an email and a password of 8+ chars); password is generated once and kept in .env.langfuse
@@ -87,6 +91,13 @@ EOF
 echo -e "${GREEN}✅ Created .env.langfuse (credentials are stored there)${NC}"
 fi
 
+# Images follow the pinned checkout, also in a reused .env.langfuse
+if grep -q '^LANGFUSE_IMAGE_TAG=' .env.langfuse; then
+    sed -i "s/^LANGFUSE_IMAGE_TAG=.*/LANGFUSE_IMAGE_TAG=${LANGFUSE_VERSION#v}/" .env.langfuse
+else
+    echo "LANGFUSE_IMAGE_TAG=${LANGFUSE_VERSION#v}" >> .env.langfuse
+fi
+
 # Load the configuration
 set -a
 source .env.langfuse
@@ -125,7 +136,7 @@ docker compose \
     -f langfuse-official/docker-compose.yml \
     -f docker-compose.langfuse.yml \
     --env-file .env.langfuse \
-    up -d
+    up -d --build
 
 echo ""
 echo -e "${BLUE}⏳ Waiting for services to be ready...${NC}"
