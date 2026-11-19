@@ -9,8 +9,17 @@ const { SessionHandler, extractAttributesArray } = require('./sessionHandler')
 const { processEvent } = require('./eventProcessor')
 const { processMetric } = require('./metricsProcessor')
 const { isProtobufRequest } = require('./otlpProtobuf')
+const { forwardTraces } = require('./traceForwarder')
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' })
+
+// Copilot data is ingested through its GenAI trace spans, not its logs/metrics
+const TRACE_ONLY_SERVICES = new Set(['copilot-chat', 'github-copilot'])
+
+function isTraceOnlyResource(resource) {
+  const serviceName = resource?.attributes?.find((a) => a.key === 'service.name')?.value?.stringValue
+  return TRACE_ONLY_SERVICES.has(serviceName)
+}
 
 // data is a JSON Buffer/string, or an object already decoded from protobuf
 function parsePayload(data) {
@@ -29,19 +38,42 @@ function sendSuccess(res) {
 }
 
 /**
- * Handle OTLP traces endpoint
+ * Handle OTLP traces endpoint: forward spans (e.g. GitHub Copilot) to Langfuse's OTLP endpoint
  */
-function handleTraces(data, res, sessions, langfuse) {
+function handleTraces(data, res, sessions, langfuse, langfuseConfig) {
+  let payload
   try {
-    parsePayload(data) // Validate JSON but Claude doesn't send traces
-    logger.debug('Received traces')
-    // Claude doesn't send traces, but handle the endpoint
-    sendSuccess(res)
+    payload = parsePayload(data)
   } catch (error) {
     logger.error({ error }, 'Error parsing traces')
     res.writeHead(400, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ error: 'Invalid JSON' }))
+    return
   }
+
+  const isProtobuf = Boolean(res.req && isProtobufRequest(res.req))
+  let forwarding
+  try {
+    forwarding = forwardTraces(payload, isProtobuf, langfuseConfig)
+  } catch (error) {
+    logger.error({ error: error.message }, 'Error preparing traces for Langfuse')
+    res.writeHead(400, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Invalid trace payload' }))
+    return
+  }
+  if (!forwarding) {
+    sendSuccess(res)
+    return
+  }
+
+  forwarding
+    .then(() => sendSuccess(res))
+    .catch((error) => {
+      logger.error({ error: error.message }, 'Error forwarding traces to Langfuse')
+      // 503 lets the OTLP exporter retry
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Langfuse unavailable' }))
+    })
 }
 
 /**
@@ -61,6 +93,7 @@ function handleMetrics(data, res, sessions, langfuse) {
     if (metrics && metrics.resourceMetrics) {
       for (const resourceMetric of metrics.resourceMetrics) {
         const resource = resourceMetric.resource
+        if (isTraceOnlyResource(resource)) continue
 
         for (const scopeMetric of resourceMetric.scopeMetrics || []) {
           for (const metric of scopeMetric.metrics || []) {
@@ -116,6 +149,7 @@ function handleLogs(data, res, sessions, langfuse) {
     if (logs && logs.resourceLogs) {
       for (const resourceLog of logs.resourceLogs) {
         const resource = resourceLog.resource
+        if (isTraceOnlyResource(resource)) continue
 
         for (const scopeLog of resourceLog.scopeLogs || []) {
           logger.debug({ scope: scopeLog.scope?.name }, 'Processing scope logs')

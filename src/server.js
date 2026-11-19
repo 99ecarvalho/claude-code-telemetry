@@ -145,7 +145,7 @@ const server = http.createServer((req, res) => {
           }
         }
         if (req.url === '/v1/traces') {
-          handleTraces(body, res, sessions, langfuse)
+          handleTraces(body, res, sessions, langfuse, config.langfuse)
         } else if (req.url === '/v1/metrics') {
           handleMetrics(body, res, sessions, langfuse)
         } else if (req.url === '/v1/logs') {

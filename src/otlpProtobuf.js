@@ -35,4 +35,10 @@ function decodeOtlpProtobuf(url, body) {
   return type.toObject(type.decode(body), TO_OBJECT_OPTIONS)
 }
 
-module.exports = { isProtobufRequest, decodeOtlpProtobuf }
+// Inverse of decodeOtlpProtobuf for /v1/traces payloads
+function encodeTraceRequest(payload) {
+  const type = REQUEST_TYPES['/v1/traces']
+  return Buffer.from(type.encode(type.fromObject(payload)).finish())
+}
+
+module.exports = { isProtobufRequest, decodeOtlpProtobuf, encodeTraceRequest }

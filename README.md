@@ -180,8 +180,23 @@ docker compose up telemetry-bridge
 | `OTLP_RECEIVER_PORT` | 4318 | OpenTelemetry standard port |
 | `LANGFUSE_HOST` | http://localhost:3000 | Langfuse dashboard URL |
 | `LOG_LEVEL` | info | Logging verbosity |
+| `TRACE_FORWARD_EXCLUDE_SERVICES` | claude-code | Comma-separated `service.name`s whose spans are not forwarded to Langfuse |
 
 See `.env.example` for all options.
+
+### GitHub Copilot (VS Code)
+
+Copilot Chat exports OpenTelemetry GenAI spans (`invoke_agent`, `chat`, `execute_tool`). The bridge forwards them to Langfuse's OTLP endpoint and maps the conversation to a Langfuse session. Add to your VS Code settings and reload the window:
+
+```json
+{
+  "github.copilot.chat.otel.enabled": true,
+  "github.copilot.chat.otel.otlpEndpoint": "http://localhost:4318",
+  "github.copilot.chat.otel.captureContent": true
+}
+```
+
+`captureContent` sends prompts, responses and tool arguments; leave it off to keep only metadata.
 
 ## 🔒 Privacy & Security
 
