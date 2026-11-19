@@ -118,6 +118,8 @@ The bridge:
 3. Forwards to Langfuse for visualization
 4. Groups related work into analyzable sessions
 
+Everything is sent to Langfuse v4's OTLP endpoint (`/api/public/otel/v1/traces`, `x-langfuse-ingestion-version: 4`); the deprecated `/api/public/ingestion` API is not used. Each Claude prompt becomes an `agent` root observation with `generation` (model call, tokens, cost) and `tool` children. The root is exported when the next prompt starts, after 5 minutes without activity, or on shutdown, because v4 stores every span once.
+
 ## 🌟 What This Tool Is (and Isn't)
 
 ### ✅ What It Does:

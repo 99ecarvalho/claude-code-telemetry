@@ -20,7 +20,7 @@
 require('dotenv').config()
 
 const http = require('http')
-const { Langfuse } = require('langfuse')
+const { LangfuseOtelClient } = require('./langfuseOtelClient')
 // const { v4: uuidv4 } = require('uuid') // Currently unused
 const pino = require('pino')
 const { retry } = require('./sessionHandler')
@@ -68,7 +68,7 @@ function validateConfig() {
 }
 
 // Initialize Langfuse with error handling
-const langfuse = new Langfuse({
+const langfuse = new LangfuseOtelClient({
   publicKey: config.langfuse.publicKey,
   secretKey: config.langfuse.secretKey,
   baseUrl: config.langfuse.baseUrl,
@@ -76,13 +76,8 @@ const langfuse = new Langfuse({
   flushInterval: config.langfuse.flushInterval,
 })
 
-// In test environment, try to prevent Langfuse from keeping process alive
-if (process.env.NODE_ENV === 'test' && langfuse._flushInterval) {
-  langfuse._flushInterval.unref()
-}
-
 langfuse.on('error', (error) => {
-  logger.error({ error }, 'Langfuse SDK error')
+  logger.error({ error: error.message }, 'Langfuse export error')
 })
 
 // Session management

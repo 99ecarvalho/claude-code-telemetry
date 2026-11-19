@@ -6,27 +6,6 @@ jest.mock('pino', () => () => ({
   warn: jest.fn(),
 }))
 
-jest.mock('langfuse', () => ({
-  Langfuse: jest.fn().mockImplementation(() => ({
-    trace: jest.fn(() => ({
-      update: jest.fn(),
-      event: jest.fn(),
-      span: jest.fn(() => ({
-        update: jest.fn(),
-        end: jest.fn(),
-        event: jest.fn(),
-      })),
-      score: jest.fn(),
-    })),
-    generation: jest.fn(() => ({
-      update: jest.fn(),
-      end: jest.fn(),
-    })),
-    flushAsync: jest.fn(() => Promise.resolve()),
-    on: jest.fn(),
-  })),
-}))
-
 // Now require the module after mocks are set up
 const { SessionHandler, extractAttributesArray } = require('../../src/sessionHandler')
 
@@ -636,6 +615,7 @@ describe('SessionHandler', () => {
 
       expect(mockLangfuseInstance.trace).toHaveBeenCalledWith({
         name: 'session-summary',
+        type: 'span',
         sessionId: 'test-session-id',
         userId: expect.any(String),
         version: '1.0.0',

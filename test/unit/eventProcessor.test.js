@@ -1,13 +1,4 @@
 // Mock dependencies before requiring the module
-jest.mock('langfuse', () => ({
-  Langfuse: jest.fn().mockImplementation(() => ({
-    trace: jest.fn(),
-    generation: jest.fn(),
-    event: jest.fn(),
-    flushAsync: jest.fn(() => Promise.resolve()),
-  })),
-}))
-
 jest.mock('../../src/sessionHandler', () => ({
   SessionHandler: jest.fn().mockImplementation(() => ({
     sessionId: 'test-session-123',

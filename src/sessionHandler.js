@@ -1,5 +1,4 @@
 // Session Handler class extracted for better testability
-// const { Langfuse } = require('langfuse') // Imported but not used directly in this file
 const pino = require('pino')
 
 const logger = pino({
@@ -626,6 +625,7 @@ class SessionHandler {
       const sessionDuration = Date.now() - this.createdAt.getTime()
       const sessionSummary = this.langfuse.trace({
         name: 'session-summary',
+        type: 'span',
         sessionId: this.sessionId,
         userId: this.metadata.userId || 'claude-code-user',
         version: this.metadata.release,

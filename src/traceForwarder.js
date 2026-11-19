@@ -72,17 +72,10 @@ function prepareTraces(payload) {
 }
 
 /**
- * Forward a decoded OTLP trace payload to Langfuse.
- * Returns null when there is nothing to forward, otherwise a promise of the span count.
+ * POST an encoded OTLP trace request to Langfuse's OTLP endpoint (v4 ingestion).
  */
-function forwardTraces(payload, isProtobuf, langfuseConfig) {
-  if (!langfuseConfig?.publicKey || !langfuseConfig?.secretKey) return null
-  const prepared = prepareTraces(payload)
-  if (!prepared) return null
-
+function sendOtlpTraces(langfuseConfig, body, isProtobuf) {
   const auth = Buffer.from(`${langfuseConfig.publicKey}:${langfuseConfig.secretKey}`).toString('base64')
-  const body = isProtobuf ? encodeTraceRequest(prepared.payload) : JSON.stringify(prepared.payload)
-
   return fetch(`${langfuseConfig.baseUrl}/api/public/otel/v1/traces`, {
     method: 'POST',
     headers: {
@@ -97,9 +90,23 @@ function forwardTraces(payload, isProtobuf, langfuseConfig) {
       const text = (await res.text()).slice(0, 300)
       throw new Error(`Langfuse OTLP ingest failed: HTTP ${res.status} ${text}`)
     }
+  })
+}
+
+/**
+ * Forward a decoded OTLP trace payload to Langfuse.
+ * Returns null when there is nothing to forward, otherwise a promise of the span count.
+ */
+function forwardTraces(payload, isProtobuf, langfuseConfig) {
+  if (!langfuseConfig?.publicKey || !langfuseConfig?.secretKey) return null
+  const prepared = prepareTraces(payload)
+  if (!prepared) return null
+
+  const body = isProtobuf ? encodeTraceRequest(prepared.payload) : JSON.stringify(prepared.payload)
+  return sendOtlpTraces(langfuseConfig, body, isProtobuf).then(() => {
     logger.info({ spans: prepared.spanCount }, 'Forwarded traces to Langfuse')
     return prepared.spanCount
   })
 }
 
-module.exports = { forwardTraces, prepareTraces }
+module.exports = { forwardTraces, prepareTraces, sendOtlpTraces }
